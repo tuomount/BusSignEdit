@@ -21,6 +21,13 @@
 
 package signedit;
 
+import java.io.BufferedInputStream;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 
 public class SignEdit {
@@ -66,6 +73,69 @@ public class SignEdit {
     }
     return false;
   }
+
+  public static byte setBit(byte value, int index) {
+    byte mask = 0;
+    switch (index) {
+    case 0: {
+      mask = (byte) 0x80;
+      break;
+    }
+    case 1: {
+      mask = (byte) 0x40;
+      break;
+    }
+    case 2: {
+      mask = (byte) 0x20;
+      break;
+    }
+    case 3: {
+      mask = (byte) 0x10;
+      break;
+    }
+    case 4: {
+      mask = (byte) 0x08;
+      break;
+    }
+    case 5: {
+      mask = (byte) 0x04;
+      break;
+    }
+    case 6: {
+      mask = (byte) 0x02;
+      break;
+    }
+    case 7: {
+      mask = (byte) 0x01;
+      break;
+    }
+    }
+    return (byte) (value | mask);
+  }
+
+  public static String readFullCharacter(String filename)
+      throws FileNotFoundException, IOException {
+    try (BufferedInputStream bis = new BufferedInputStream(
+        new FileInputStream(new File(filename)))) {
+      // one kilo buffer
+      int bufferSize = 1024;
+      byte[] buffer = new byte[bufferSize];
+      int offset = 0;
+      int readAmount = 0;
+      int left = bufferSize;
+      do {
+        readAmount = bis.read(buffer, offset, left);
+        if (readAmount > 0) {
+          offset = offset + readAmount;
+          left = left - readAmount;
+        }
+      } while (left > 0 && readAmount > 1);
+      String strBuffer = new String(buffer, 0, offset,
+          StandardCharsets.US_ASCII);
+      return strBuffer;
+    }
+
+  }
   public static void main(String[] args) {
     if (args.length == 3) {
       int width = Integer.parseInt(args[0]);
@@ -94,6 +164,35 @@ public class SignEdit {
           }
         }
         System.out.println(row.toString());
+      }
+    } else if (args.length == 1) {
+      String data;
+      try {
+        data = readFullCharacter(args[0]);
+        String[] lines = data.split("\n");
+        int height = lines.length;
+        int width = lines[0].length();
+        int size = height * width / 8;
+        byte[] buffer = new byte[size];
+        int bait = 0;
+        int bit = 0;
+        for (int y = 0; y < height; y++) {
+          for (int x = 0; x < width; x++) {
+            if (lines[y].charAt(x) == '1') {
+              buffer[bait] = setBit(buffer[bait], bit);
+            }
+            bit++;
+            if (bit == 8) {
+              bait++;
+              bit = 0;
+            }
+          }
+        }
+        System.out.println("Width=\"" + width +"\" height=\"" + height +
+            "\" data=\"" + Base64.getEncoder().encodeToString(buffer) + "\"");
+      } catch (IOException e) {
+        // TODO Auto-generated catch block
+        e.printStackTrace();
       }
     } else {
       System.out.println("Usage: WIDTH HEIGHT DATA");
